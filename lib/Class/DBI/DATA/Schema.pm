@@ -30,7 +30,7 @@ to find and execute all SQL statements in the DATA section of the package.
 use strict;
 use warnings;
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 =head1 METHODS
 
@@ -54,53 +54,54 @@ DATA in any way.
 
 =cut
 
-
-sub import { 
+sub import {
 	my ($self, %args) = @_;
 	my $caller = caller();
 
 	my $translating = 0;
-	if ($args{translate}) { 
+	if ($args{translate}) {
 		eval "use SQL::Translator";
-		die "Cannot translate without SQL::Translator" if $@;
-		$translating = 1;
+		$@ ? warn "Cannot translate without SQL::Translator" : ($translating = 1);
 	}
 
 	my $CACHE = "";
-	if ($args{cache}) { 
-		eval "use Cache::File";
-		die "Cannot cache without Cache::File" if $@;
-		eval "use Digest::MD5";
-		die "Cannot cache without Digest::MD5" if $@;
-		$CACHE = Cache::File->new(
-			cache_root => $args{cache},
-			cache_umask     => $args{cache_umask} || 000,
-			default_expires => $args{cache_duration} || '30 day',
-		);
+	if ($args{cache}) {
+		eval "use Cache::File; use Digest::MD5";
+		$@
+			? warn "Cannot cache without Cache::File and Digest::MD5"
+			: (
+			$CACHE = Cache::File->new(
+				cache_root      => $args{cache},
+				cache_umask     => $args{cache_umask} || 000,
+				default_expires => $args{cache_duration} || '30 day',
+			));
 	}
 
-	my $translate = sub { 
+	my $translate = sub {
 		my $sql = shift;
-		if (my ($from, $to) = @{ $args{translate} || [] }) { 
-			my $key = $CACHE ? Digest::MD5::md5_base64($sql) : "";
-			my $cached = $CACHE ? $CACHE->get($key) : "";
+		if (my ($from, $to) = @{ $args{translate} || [] }) {
+			my $key    = $CACHE ? Digest::MD5::md5_base64($sql) : "";
+			my $cached = $CACHE ? $CACHE->get($key)             : "";
 			return $cached if $cached;
 
 			my $translator = SQL::Translator->new(no_comments => 1, trace => 0);
+
 			# Ahem.
-			local $SIG{__WARN__} = sub {};
-			local *Parse::RecDescent::_error = sub ($;$) {};
-			$sql = eval { $translator->translate(
-				parser => $from,
-				producer   => $to,
-				data => \$sql,
-			)} || $sql;
+			local $SIG{__WARN__} = sub { };
+			local *Parse::RecDescent::_error = sub ($;$) { };
+			$sql = eval {
+				$translator->translate(
+					parser   => $from,
+					producer => $to,
+					data     => \$sql,
+				);
+			} || $sql;
 			$CACHE->set($key => $sql) if $CACHE;
 		}
 		$sql;
 	};
 
-	my $transform = sub { 
+	my $transform = sub {
 		my $sql = shift;
 		return join ";", map $translate->("$_;"), grep /\S/, split /;/, $sql;
 	};
@@ -115,13 +116,13 @@ sub import {
 	my %cache;
 
 	no strict 'refs';
-	*{"$caller\::run_data_sql"} = sub { 
+	*{"$caller\::run_data_sql"} = sub {
 		my $class = shift;
 		no strict 'refs';
 		$cache{$class} ||= [ $get_statements->(*{"$class\::DATA"}{IO}) ];
-		$class->db_Main->do($_) foreach @{$cache{$class}};
+		$class->db_Main->do($_) foreach @{ $cache{$class} };
 		return 1;
-	}
+		}
 
 }
 

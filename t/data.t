@@ -6,8 +6,10 @@ use Test::More;
 use lib 't/testlib';
 
 BEGIN {
-	eval "use DBD::SQLite";
-	plan $@ ? (skip_all => 'needs DBD::SQLite for testing') : (tests => 10);
+	eval "use DBD::SQLite; use SQL::Translator; use Digest::MD5";
+	plan $@ 
+		? (skip_all => 'needs DBD::SQLite, SQL::Translator and Digest::MD5 for testing') 
+		: (tests => 10);
 }
 
 use_ok 'Class::DBI::DATA::Schema';
