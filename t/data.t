@@ -7,18 +7,20 @@ use lib 't/testlib';
 
 BEGIN {
 	eval "use DBD::SQLite";
-	plan $@ ? (skip_all => 'needs DBD::SQLite for testing') : (tests => 9);
+	plan $@ ? (skip_all => 'needs DBD::SQLite for testing') : (tests => 10);
 }
 
 use_ok 'Class::DBI::DATA::Schema';
-can_ok 'Class::DBI::DATA::Schema' => 'run_data_sql';
 
 use_ok 'Film';
 can_ok Film => 'run_data_sql';
 
 ok Film->run_data_sql, "set up data";
+is Film->retrieve_all, 1, "We have one film automatically set up";
 
-is Film->retrieve_all, 2, "We have two films automatically set up";
+my $gf = Film->create({ title => "The Godfather", rating => 18 });
+ok my $fetch = Film->retrieve($gf->id), "Fetch back";
+is $fetch->title, "The Godfather", " - title correct";
 
 is Film->search(title => 'Veronique')->first->rating, 15, "Veronique";
 is Film->search(title => 'The Godfather')->first->rating, 18, "Godfather";

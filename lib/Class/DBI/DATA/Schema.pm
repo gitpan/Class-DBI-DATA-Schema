@@ -29,10 +29,8 @@ to find and execute all SQL statements in the DATA section of the package.
 
 use strict;
 use warnings;
-use base 'Exporter';
 
-our $VERSION = '0.01';
-our @EXPORT  = qw/run_data_sql/;
+our $VERSION = '0.02';
 
 =head1 METHODS
 
@@ -56,20 +54,53 @@ DATA in any way.
 
 =cut
 
-{
-	my %cache;
 
-	my $statements = sub {
-		my $h = shift;
-		local $/ = ";";
-		chomp(my @sql = <$h>);
-		return grep /\S/, @sql;
+sub import { 
+	my ($self, %args) = @_;
+	my $caller = caller();
+
+	my $translating = 0;
+	if ($args{translate}) { 
+		eval "use SQL::Translator";
+		die "Cannot translate with SQL::Translator" if $@;
+		$translating = 1;
+	}
+
+	my $translate = sub { 
+		my $sql = shift;
+		if (my ($from, $to) = @{ $args{translate} || [] }) { 
+			my $translator = SQL::Translator->new(no_comments => 1, trace => 0);
+			# Ahem.
+			local $SIG{__WARN__} = sub {};
+			local *Parse::RecDescent::_error = sub ($;$) {};
+			$sql = eval { $translator->translate(
+				parser => $from,
+				producer   => $to,
+				data => \$sql,
+			)} || $sql;
+		}
+		$sql;
 	};
 
-	sub run_data_sql {
+	my $transform = sub { 
+		my $sql = shift;
+		return join ";", map $translate->("$_;"), grep /\S/, split /;/, $sql;
+	};
+
+	my $get_statements = sub {
+		my $h = shift;
+		local $/ = undef;
+		chomp(my $sql = <$h>);
+		return grep /\S/, split /;/, $translating ? $transform->($sql) : $sql;
+	};
+
+	my %cache;
+
+	no strict 'refs';
+	*{"$caller\::run_data_sql"} = sub { 
 		my $class = shift;
 		no strict 'refs';
-		$cache{$class} ||= [ $statements->(*{"$class\::DATA"}{IO}) ];
+		$cache{$class} ||= [ $get_statements->(*{"$class\::DATA"}{IO}) ];
 		$class->db_Main->do($_) foreach @{$cache{$class}};
 		return 1;
 	}
@@ -78,7 +109,7 @@ DATA in any way.
 
 =head1 COPYRIGHT
 
-Copyright (C) 2003 Kasei. All rights reserved.
+Copyright (C) 2003-2004 Kasei. All rights reserved.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
