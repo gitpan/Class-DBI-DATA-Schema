@@ -1,5 +1,11 @@
 Revision history for Class::DBI::DATA::Schema.
 
+0.03  Oct 15 2003
+	- Allow for Caching of the translations (undocumented)
+
+0.02  Mar 16 2004
+	- Allow SQL::Translate to do its thing (undocumented)
+
 0.01  Oct 15 2003
 	- original version 
 

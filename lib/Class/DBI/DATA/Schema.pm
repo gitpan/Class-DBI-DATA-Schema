@@ -30,7 +30,7 @@ to find and execute all SQL statements in the DATA section of the package.
 use strict;
 use warnings;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 =head1 METHODS
 
@@ -62,13 +62,30 @@ sub import {
 	my $translating = 0;
 	if ($args{translate}) { 
 		eval "use SQL::Translator";
-		die "Cannot translate with SQL::Translator" if $@;
+		die "Cannot translate without SQL::Translator" if $@;
 		$translating = 1;
+	}
+
+	my $CACHE = "";
+	if ($args{cache}) { 
+		eval "use Cache::File";
+		die "Cannot cache without Cache::File" if $@;
+		eval "use Digest::MD5";
+		die "Cannot cache without Digest::MD5" if $@;
+		$CACHE = Cache::File->new(
+			cache_root => $args{cache},
+			cache_umask     => $args{cache_umask} || 000,
+			default_expires => $args{cache_duration} || '30 day',
+		);
 	}
 
 	my $translate = sub { 
 		my $sql = shift;
 		if (my ($from, $to) = @{ $args{translate} || [] }) { 
+			my $key = $CACHE ? Digest::MD5::md5_base64($sql) : "";
+			my $cached = $CACHE ? $CACHE->get($key) : "";
+			return $cached if $cached;
+
 			my $translator = SQL::Translator->new(no_comments => 1, trace => 0);
 			# Ahem.
 			local $SIG{__WARN__} = sub {};
@@ -78,6 +95,7 @@ sub import {
 				producer   => $to,
 				data => \$sql,
 			)} || $sql;
+			$CACHE->set($key => $sql) if $CACHE;
 		}
 		$sql;
 	};
