@@ -1,0 +1,7 @@
+Changes
+MANIFEST			This list of files
+MANIFEST.SKIP
+Makefile.PL
+lib/Class/DBI/DATA/Schema.pm
+t/data.t
+t/testlib/Film.pm
