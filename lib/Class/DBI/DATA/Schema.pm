@@ -30,7 +30,7 @@ to find and execute all SQL statements in the DATA section of the package.
 use strict;
 use warnings;
 
-our $VERSION = '0.04';
+our $VERSION = '1.00';
 
 =head1 METHODS
 
@@ -51,6 +51,14 @@ merely assumes that everything in the DATA section is SQL, and
 applies each thing it finds (separated by semi-colons) in turn to your
 database. Similarly there is no security checking, or validation of the
 DATA in any way.
+
+=head1 TRANSLATION and CACHING
+
+There are undocumented arguments that will allow this module to translate
+the SQL from one database schema to another, and also to cache the result
+of that translation. People are relying on these, so they're not going
+to go away, but you're going to need to read the source and/or the tests
+to work out how to use them.
 
 =cut
 
@@ -80,7 +88,7 @@ sub import {
 	my $translate = sub {
 		my $sql = shift;
 		if (my ($from, $to) = @{ $args{translate} || [] }) {
-			my $key    = $CACHE ? Digest::MD5::md5_base64($sql) : "";
+			my $key    = $CACHE ? Digest::MD5::md5_base64($sql.$from.$to) : "";
 			my $cached = $CACHE ? $CACHE->get($key)             : "";
 			return $cached if $cached;
 
@@ -126,20 +134,30 @@ sub import {
 
 }
 
-=head1 COPYRIGHT
-
-Copyright (C) 2003-2004 Kasei. All rights reserved.
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
-
-=head1 AUTHOR
-
-Tony Bowden, E<lt>kasei@tmtm.comE<gt>.
-
 =head1 SEE ALSO
 
 L<Class::DBI>. 
+
+=head1 AUTHOR
+
+Tony Bowden
+
+=head1 BUGS and QUERIES
+
+Please direct all correspondence regarding this module to:
+  bug-Class-DBI-DATA-Schema@rt.cpan.org
+
+=head1 COPYRIGHT
+
+  Copyright (C) 2003-2005 Kasei 
+
+  This program is free software; you can redistribute it and/or modify it under
+  the terms of the GNU General Public License; either version 2 of the License,
+  or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+  FOR A PARTICULAR PURPOSE.
 
 =cut
 

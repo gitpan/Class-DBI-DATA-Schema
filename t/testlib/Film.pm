@@ -19,7 +19,7 @@ __PACKAGE__->columns(All => qw/filmid title rating/);
 __DATA__
 
 CREATE TABLE film (
-	filmid MEDIUMINT AUTO_INCREMENT PRIMARY KEY,
+	filmid INTEGER AUTO_INCREMENT PRIMARY KEY,
 	title VARCHAR(255),
 	rating VARCHAR(5)
 );
